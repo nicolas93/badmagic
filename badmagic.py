@@ -8,11 +8,9 @@ import argparse
 signatures = [  b'%PDF-1.0\r\x0e',				#PDF
 				b'%PDF-1.1\r\x0e',				#PDF
 				b'%PDF-1.2\r\x0e',				#PDF
-				b'%PDF-1.3\r\x0e',				#PDF
-				b'%PDF-1.4\r\x0e',				#PDF
 				b'%PDF-1.5\r\x0e',				#PDF
 				b'%PDF-1.6\r\x0e',				#PDF
-				b'%PDF-1.7\r\x0e',				#PDF
+				b'%PDF-2.0\r\x0e',				#PDF
 				b'RIFF\xff\xff\xff\xffWAVE',	#Waveform Audio
 				b'RIFF\xff\xff\xff\xffAVI\x20', #AVI
 				b"ID3",							#MP3
@@ -26,7 +24,7 @@ signatures = [  b'%PDF-1.0\r\x0e',				#PDF
 				b"\x89PNG\x0D\x0A\x1A\x0A"]		#PNG
 
 
-def overwrite_partial(filename, sig_count):
+def overwrite_partial(filename, sig_count, headerlength):
     length = os.stat(filename).st_size
     with open(filename, "br+", buffering=0) as file:
         print("Injecting bad magic codes into file %s" %(filename))
@@ -34,6 +32,7 @@ def overwrite_partial(filename, sig_count):
         print("Number of signatures: %d" %(sig_count))
         for i in range(sig_count):
             entrypoint = random.randint(0,length-1)
+            entrypoint = entrypoint - (entrypoint % 4)
             signature = signatures[random.randint(0,len(signatures)-1)]
             print("\t\tInjecting signature at 0x%x + file offset" %(entrypoint))
             print("\t\t\tSignature:", end="")
@@ -41,7 +40,7 @@ def overwrite_partial(filename, sig_count):
             file.seek(entrypoint)
             file.write(signature)
         file.seek(0)
-        file.write(b"\x01" * 400)
+        file.write(b"\x00" * headerlength)
 
 def overwrite_random(filename):
     length = os.stat(filename).st_size
@@ -63,6 +62,7 @@ def main():
         description='Overwrite parts of a file with fake file signatures/magic codes.')
     parser.add_argument("file", help="File to overwrite")
     parser.add_argument("-s",type=int, help="Number of signatures to write into file.",default=20)
+    parser.add_argument("--header",type=int, help="Length of header to overwrite with zeros.",default=0)
     parser.add_argument('--random', action='store_true', help="Overwrite file with random data first (not as safe as shred or srm!)")
     parser.add_argument('--zero', action='store_true', help="Overwrite file with zeros first (not as safe as shred or srm!)")
     args = parser.parse_args()
@@ -71,7 +71,7 @@ def main():
         overwrite_zero(args.file)
     if(args.random):
         overwrite_random(args.file)
-    overwrite_partial(args.file, args.s)
+    overwrite_partial(args.file, args.s, args.header)
 
 
 if __name__ == "__main__":
